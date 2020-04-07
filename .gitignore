@@ -1,0 +1,12 @@
+lua-5.4.0-beta/src/*.o
+lua-5.4.0-beta/src/*.a
+lua-5.4.0-beta/src/lua
+lua-5.4.0-beta/src/luac
+lua-5.4.0-beta-nolibs/src/*.o
+lua-5.4.0-beta-nolibs/src/*.a
+lua-5.4.0-beta-nolibs/src/lua
+lua-5.4.0-beta-nolibs/src/luac
+generatedlib
+script.lbc
+out-*
+lx/heavy

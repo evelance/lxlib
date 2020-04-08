@@ -2,7 +2,7 @@
 # base  = Lua5.4-beta standard libraries
 # basex = base + LuaFileSystem + some LHF libraries
 # heavy = basex + many auto-generated modules
-LXLIB=heavy
+LXLIB=base
 
 CFLAGS_GENERAL = -Wshadow -Wsign-compare -Wundef -Wwrite-strings -Wredundant-decls -Wdisabled-optimization  \
                  -Wmissing-prototypes -Wnested-externs -Wstrict-prototypes -Wc++-compat -Wold-style-definition

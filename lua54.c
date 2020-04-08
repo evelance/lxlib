@@ -3,13 +3,6 @@
 ** Lua stand-alone interpreter
 ** See Copyright Notice in lua.h
 */
-#ifdef USELX
-    #include "lx.h"
-    extern lx_module LXLIB;
-    /* Add __index methamethod to _G */
-    #define luaL_openlibs(L) { lua_pushglobaltable(L); lx_set_lookup_metatable(L, &LXLIB); }
-#endif
-// Everything below is unmodified
 
 #define lua_c
 
@@ -27,6 +20,13 @@
 #include "lauxlib.h"
 #include "lualib.h"
 
+#ifdef USELX
+    #include "lx.h"
+    extern lx_module LXLIB;
+    /* Add __index methamethod to _G */
+    #define luaL_openlibs(L) { lua_pushglobaltable(L); lx_set_lookup_metatable(L, &LXLIB); }
+#endif
+// Everything below is unmodified
 
 #if !defined(LUA_PROGNAME)
 #define LUA_PROGNAME		"lua"
@@ -638,4 +638,3 @@ int main (int argc, char **argv) {
   lua_close(L);
   return (result && status == LUA_OK) ? EXIT_SUCCESS : EXIT_FAILURE;
 }
-

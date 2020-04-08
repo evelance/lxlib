@@ -73,6 +73,13 @@ int main(void)
             return 1;
         }
     });
+    // #ifndef USELX
+        // MEASURE_STATES("Require base64", {
+            // lua_getglobal(L, "require");  /* function to be called */
+            // lua_pushliteral(L, "base64"); /* 1st argument */
+            // lua_call(L, 1, 0);            /* call with 2 arguments and 1 result */
+        // });
+    // #endif
     MEASURE_STATES("Execution", {
         int nresults = 0;
         switch (lua_resume(L, NULL, 0, &nresults))

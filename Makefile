@@ -8,7 +8,7 @@ CFLAGS_GENERAL = -Wshadow -Wsign-compare -Wundef -Wwrite-strings -Wredundant-dec
                  -Wmissing-prototypes -Wnested-externs -Wstrict-prototypes -Wc++-compat -Wold-style-definition
 CFLAGS_DEBUG = -ggdb -fno-omit-frame-pointer -fsanitize=address -fsanitize=null
 CFLAGS_RELEASE = -O2
-CFLAGS = -std=gnu99 -fwrapv -Wall -Wextra -pedantic $(CFLAGS_RELEASE) -DLXLIB=lx_$(LXLIB)
+CFLAGS = -std=gnu99 -Wall -Wextra -pedantic $(CFLAGS_RELEASE) -DLUA_COMPAT_5_3 -DLUA_USE_LINUX -DLUA_USE_READLINE -Wl,-E -DLXLIB=lx_$(LXLIB)
 # CFLAGS = -std=gnu99 -fwrapv -Wall -Wextra -pedantic $(CFLAGS_DEBUG)
 LUA = lua-5.4.0-beta
 LUA_NL = lua-5.4.0-beta-nolibs
@@ -22,7 +22,7 @@ run: $(OUT)
 	./out-normal
 
 # Test programs
-out-normal: main.c
+out-normal: main.c base64.so
 	$(CC) $(CFLAGS) -o $@ -I$(LUA)/src $< $(LUA)/src/liblua.a -ldl -lm
 
 out-lx: main.c generatedlib Makefile
@@ -30,10 +30,14 @@ out-lx: main.c generatedlib Makefile
 
 # Command line Lua for experimenting
 out-lua54-normal: lua54.c
-	$(CC) $(CFLAGS) -o $@ -I$(LUA)/src -DLUA_USE_LINUX -DLUA_USE_READLINE $< $(LUA)/src/liblua.a -ldl -lm -lreadline
+	$(CC) $(CFLAGS) -o $@ -I$(LUA)/src $< $(LUA)/src/liblua.a -ldl -lm -lreadline
 
 out-lua54-lx: lua54.c generatedlib Makefile
-	$(CC) $(CFLAGS) -o $@ -I$(LUA)/src -I./generatedlib -DLUA_USE_LINUX -DLUA_USE_READLINE -DUSELX $< generatedlib/*.o $(LUA_NL)/src/liblua.a -ldl -lm -lreadline
+	$(CC) $(CFLAGS) -o $@ -I$(LUA)/src -I./generatedlib  -DUSELX $< generatedlib/*.o $(LUA_NL)/src/liblua.a -ldl -lm -lreadline
+
+# Dynamic loading
+base64.so:
+	cd base64 && make && cp base64.so ..
 
 # Generated LX library functions for Lua
 generatedlib: lx/*/*.lua lx/*/*.c lx/$(LXLIB) Makefile

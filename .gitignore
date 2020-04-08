@@ -10,3 +10,6 @@ generatedlib
 script.lbc
 out-*
 lx/heavy
+base64/lbase64.o
+base64/base64.so
+base64.so

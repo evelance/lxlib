@@ -12,7 +12,7 @@ NUM_STATES=100000
 #       Reports only total time, and has a strong caching effect.
 # 1   = NUM_STATES states are constructed at the beginning and the test steps
 #       are executed on all states. Needs a lot of RAM and is alot slower.
-STEPWISE=0
+STEPWISE=1
 
 # Lots of stuff...
 CFLAGS_GENERAL = -DLUA_COMPAT_5_3 -DLUA_USE_LINUX -Wl,-E -DLXLIB=lx_$(LXLIB) -DLXNSTATES=$(NUM_STATES) -DLXSTEPWISE=$(STEPWISE) \

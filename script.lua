@@ -1,6 +1,7 @@
 -- Hello
-local b64 = (lhf and lhf.base64) or require "base64"
-local mathx = (lhf and lhf.mathx) or require "mathx"
+-- local b64 = (lhf and lhf.base64) or require "base64"
+-- local mathx = (lhf and lhf.mathx) or require "mathx"
+local mathx, b64 = math, { encode = function(s) return s end }
 local coro = coroutine.create(function()
     local i = 0
     while true do

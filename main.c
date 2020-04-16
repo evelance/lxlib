@@ -60,6 +60,7 @@
         MEASURE(msg, { \
             for (size_t istate = 0; istate < nstates; ++istate) { \
                 lua_State* L = states[istate]; \
+                (void)L; \
                 code; \
             } \
         }); \

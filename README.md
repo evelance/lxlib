@@ -1,5 +1,9 @@
 # [Experiment] Lua eXtension library with static hashing
 
+All modifications and additional files are released into public domain.
+
+Message on lua-l: http://lua-users.org/lists/lua-l/2020-04/msg00022.html
+
 ## Motivation
 
 Lua is probably the scripting language that offers the lightest way to
@@ -14,8 +18,6 @@ This experiment investigates:
 1. If static hash tables can avoid this cost
 2. How such modules would be written and what the implications are for scripts
 3. How Lua will behave if a large amount of user-supplied functions get added.
-
-All modifications and additional files are released into public domain.
 
 ## Instructions
 

@@ -3,6 +3,7 @@
 All modifications and additional files are released into public domain.
 
 Message on lua-l: http://lua-users.org/lists/lua-l/2020-04/msg00022.html
+(Refers to: https://github.com/evelance/lxlib/tree/ac4a7c85b1599ea6a588d5a371345be7032a7816)
 
 ## Motivation
 

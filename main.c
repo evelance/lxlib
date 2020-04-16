@@ -14,9 +14,28 @@
     #define luaL_openlibs(L) { lua_pushglobaltable(L); lx_set_lookup_metatable(L, &LXLIB); lua_pop(L, 1); }
 #endif
 
+#define LUA_USE_APICHECK
 #include "lua.h"
 #include "lualib.h"
 #include "lauxlib.h"
+
+#if LUA_VERSION_NUM == 504
+    #define RESUME(L) \
+        int nres = 0; \
+        switch (lua_resume(L, NULL, 0, &nres)) { \
+            case LUA_OK:      break; \
+            case LUA_YIELD:   printf("lua_resume: yielded!\n");                       break; \
+            default:          printf("lua_resume: error: %s\n", lua_tostring(L, -1)); break; \
+        }
+#endif
+#if  LUA_VERSION_NUM == 503
+    #define RESUME(L) \
+        switch (lua_resume(L, NULL, 0)) { \
+            case LUA_OK:      break; \
+            case LUA_YIELD:   printf("lua_resume: yielded!\n");                       break; \
+            default:          printf("lua_resume: error: %s\n", lua_tostring(L, -1)); break; \
+        }
+#endif
 
 //*
 #define MEASURE(msg,stmt) { \
@@ -31,104 +50,113 @@
 }
 //*/
 
-// #define MEASURE(msg,stmt) stmt;
-
-int main(void)
-{
-    // Load bytecode into buffer
-    FILE* f = fopen("script.lbc", "rb");
-    if (! f) {
-        perror("fopen");
-        return 1;
+#if LXSTEPWISE == 1
+    #define STEPWISE_OR_TOTAL(code) { \
+        lua_State** states = (lua_State**)malloc(sizeof(void*) * nstates); \
+        code; \
+        free(states); \
     }
-    fseek(f, 0, SEEK_END);
-    size_t len = ftell(f);
-    rewind(f);
-    char* buf = (char*)malloc(len + 1);
-    fread(buf, 1, len, f);
-    buf[len] = 0;
-    fclose(f);
-    // Create states and load libraries
-    const size_t nstates = 100000;
-    lua_State** states = (lua_State**)malloc(sizeof(void*) * nstates);
-    // Repeat for all states and measure time taken
     #define MEASURE_STATES(msg, code) { \
         MEASURE(msg, { \
-            for (size_t i = 0; i < nstates; ++i) { \
-                lua_State* L = states[i]; \
+            for (size_t istate = 0; istate < nstates; ++istate) { \
+                lua_State* L = states[istate]; \
                 code; \
             } \
         }); \
     }
-    MEASURE_STATES("Create states", {
-        (void)L;
-        states[i] = luaL_newstate();
+    #define STEPWISE_ONLY(code) code;
+#else
+    #define STEPWISE_OR_TOTAL(code) { \
+        MEASURE("All at once", { \
+            lua_State** states = (lua_State**)malloc(sizeof(void*) * 1); \
+            size_t istate = 0; \
+            lua_State* L = states[istate]; \
+            for (size_t round = 0; round < nstates; ++round) { \
+                code; \
+            } \
+            free(states); \
+        }); \
+    }
+    #define MEASURE_STATES(msg, code) code;
+    #define STEPWISE_ONLY(code)
+#endif
+
+#ifdef LX_USE_PRELOAD
+    extern int luaopen_base64(lua_State *L);
+    extern int luaopen_mathx(lua_State *L);
+    #define USE_PRELOAD(code) { code; }
+#else
+    #define USE_PRELOAD(code) { ; }
+#endif
+
+// #define MEASURE(msg, code) code;
+
+// Buffer with compiled script.lua
+static char* buf = NULL;
+static size_t buflen = 0;
+
+static int buf_writer(lua_State* L, const void* p, size_t size, void* u) {
+    (void)L; (void)u;
+    buf = realloc(buf, buflen + size);
+    memcpy(buf + buflen, p, size);
+    buflen += size;
+    return 0;
+}
+
+int main(void)
+{
+    // Load script, compile it and dump bytecode into buf
+    lua_State* L1 = luaL_newstate();
+    luaL_loadfilex(L1, "script.lua", "t");
+    lua_dump(L1, buf_writer, NULL, 1);
+    lua_close(L1);
+    // Create states and load libraries
+    const size_t nstates = LXNSTATES;
+    //*
+    // Repeat for all states and measure time taken
+    STEPWISE_OR_TOTAL({
+        MEASURE_STATES("Create states", {
+            states[istate] = luaL_newstate();
+            L = states[istate];
+        });
+        MEASURE_STATES("Load libraries", {
+            luaL_openlibs(L);
+        });
+        MEASURE_STATES("Load bytecode", {
+            if (luaL_loadbufferx(L, buf, buflen, "script.lua (bytecode buffer)", "b")) {
+                printf("luaL_loadbufferx: %s\n", lua_tostring(L, -1));
+                return 1;
+            }
+        });
+        USE_PRELOAD({
+            MEASURE_STATES("preload", {
+                // base64
+                lua_getglobal(L, "package");
+                    lua_getfield(L, -1, "preload");
+                        lua_pushcfunction(L, luaopen_base64);
+                            lua_setfield(L, -2, "base64");
+                        lua_pop(L, 2);
+                // mathx
+                lua_getglobal(L, "package");
+                    lua_getfield(L, -1, "preload");
+                        lua_pushcfunction(L, luaopen_mathx);
+                            lua_setfield(L, -2, "mathx");
+                        lua_pop(L, 2);
+            });
+        })
+        MEASURE_STATES("Execution", {
+            RESUME(L);
+        });
+        STEPWISE_ONLY({
+            printf("memory usage per state: %dKB\n", lua_gc(states[0], LUA_GCCOUNT, 0));
+        });
+        MEASURE_STATES("full gc cycle", {
+            lua_gc(L, LUA_GCCOLLECT, 0);
+        });
+        MEASURE_STATES("Cleanup", {
+            lua_close(L);
+        });
     });
-    MEASURE_STATES("Load libraries", {
-        luaL_openlibs(L);
-    });
-    MEASURE_STATES("Load bytecode", {
-        if (luaL_loadbufferx(L, buf, len, "script.lua (bytecode buffer)", "b")) {
-            printf("luaL_loadbufferx: %s\n", lua_tostring(L, -1));
-            return 1;
-        }
-    });
-    // #ifndef USELX
-        // MEASURE_STATES("Require base64", {
-            // lua_getglobal(L, "require");  /* function to be called */
-            // lua_pushliteral(L, "base64"); /* 1st argument */
-            // lua_call(L, 1, 0);            /* call with 2 arguments and 1 result */
-        // });
-    // #endif
-    MEASURE_STATES("Execution", {
-        int nresults = 0;
-        switch (lua_resume(L, NULL, 0, &nresults))
-        {
-            case LUA_YIELD:   printf("lua_resume: yielded!\n");                                   break;
-            case LUA_OK:      break; // printf("lua_resume: finished.\n");                                  break;
-            case LUA_ERRRUN:  printf("lua_resume: runtime error: %s\n", lua_tostring(L, -1));     break;
-            case LUA_ERRMEM:  printf("lua_resume: memory allocation error.\n");                   break;
-            case LUA_ERRERR:  printf("lua_resume: error while running the message handler.\n");   break;
-            default:          printf("lua_resume: unknown\n");                                    break;
-        }
-        // printf("We're back with %d arguments\n", nresults);
-        // for (int r = 1; r <= nresults; ++r) {
-            // size_t slen = 0;
-            // const char* s = luaL_tolstring(L, r, &slen);
-            // printf("Argument %d: %s, %.*s\n", r, lua_typename(L, lua_type(L, r)), (int)slen, s);
-        // }
-    });
-    printf("memory usage per state: %dKB\n", lua_gc(states[0], LUA_GCCOUNT));
-    // sleep(10);
-    MEASURE_STATES("full gc cycle", {
-        lua_gc(L, LUA_GCCOLLECT);
-    });
-    MEASURE_STATES("Cleanup", {
-        lua_close(L);
-    });
-    /*
-    MEASURE_STATES("All at once", {
-        states[i] = luaL_newstate();
-        L = states[i];
-        OPENLIBS;
-        if (luaL_loadbufferx(L, buf, len, "script.lua (bytecode buffer)", "b")) {
-            printf("luaL_loadbufferx: %s\n", lua_tostring(L, -1));
-            return 1;
-        }
-        int nresults = 0;
-        switch (lua_resume(L, NULL, 0, &nresults))
-        {
-            case LUA_YIELD:   printf("lua_resume: yielded!\n");                                   break;
-            case LUA_OK:      break; // printf("lua_resume: finished.\n");                                  break;
-            case LUA_ERRRUN:  printf("lua_resume: runtime error: %s\n", lua_tostring(L, -1));     break;
-            case LUA_ERRMEM:  printf("lua_resume: memory allocation error.\n");                   break;
-            case LUA_ERRERR:  printf("lua_resume: error while running the message handler.\n");   break;
-            default:          printf("lua_resume: unknown\n");                                    break;
-        }
-        lua_close(L);
-    });
-    */
-    free(states);
     free(buf);
 }
 
